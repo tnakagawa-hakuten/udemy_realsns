@@ -1,5 +1,124 @@
 const router = require("express").Router();
+const User = require("../models/User");
 
+//CRUD操作 create read update delete
+//ユーザー情報更新
+router.put("/:id", async (req, res) => {
+  if (req.body.userId === req.params.id || req.body.isAdmin) {
+    try {
+      const user = await User.findByIdAndUpdate(req.params.id, {
+        $set: req.body,
+      });
+      res.status(200).json("ユーザー情報が更新されました");
+    } catch (err) {
+      return res.status(500).json(err);
+    }
+  } else {
+    return res
+      .status(403)
+      .json("あなたは自分のアカウントのときだけ情報を更新できます。");
+  }
+});
+//ユーザー情報削除
+router.delete("/:id", async (req, res) => {
+  if (req.body.userId === req.params.id || req.body.isAdmin) {
+    try {
+      const user = await User.findByIdAndDelete(req.params.id);
+      res.status(200).json("ユーザー情報が削除されました。");
+    } catch (err) {
+      return res.status(500).json(err);
+    }
+  } else {
+    return res
+      .status(403)
+      .json("あなたは自分のアカウントのときだけ情報を削除できます。");
+  }
+});
+
+//ユーザー情報の取得
+router.get("/:id", async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    //分割代入　user._docから情報取り出し
+    const { password, updatedAt, ...other } = user._doc;
+    res.status(200).json(other);
+  } catch (err) {
+    return res.status(500).json(err);
+  }
+});
+
+//ユーザーのフォロー
+router.put("/:id/follow", async (req, res) => {
+  //自分自身のユーザーid と　フォローするuser id　が等しくない場合にフォローできる。
+  if (req.body.userId !== req.params.id) {
+    try {
+      //フォオローするユーザ
+      const user = await User.findById(req.params.id);
+      //自分自身
+      const currentUser = await User.findById(req.body.userId);
+      //今からフォローしに行くユーザーのフォロワーを見に行く。自分自身が含まれているかをincludesに見に行く。
+      //フォロワーに自分がいなかったらフォローできる。
+      if (!user.followers.includes(req.body.userId)) {
+        await user.updateOne({
+          //push追加。スキーマのfollowers配列に追加していく。
+          $push: {
+            followers: req.body.userId,
+          },
+        });
+        await currentUser.updateOne({
+          $push: {
+            //自分自身のフォローしている人の中に、フォローしたuserを追加。
+            followings: req.params.id,
+          },
+        });
+        return res.status(200).json("フォローに成功しました！");
+      } else {
+        return res
+          .status(403)
+          .json("あなたはすでにこのユーザーをフォロ-しています。");
+      }
+    } catch (err) {
+      return res.status(500).json("おいおおい");
+    }
+  } else {
+    return res.status(500).json("自分自身をフォローできません。");
+  }
+});
+
+//ユーザーのフォローを外す
+router.put("/:id/unfollow", async (req, res) => {
+  //自分自身のユーザーid と　フォローするuser id　が等しくない場合にフォローできる。
+  if (req.body.userId !== req.params.id) {
+    try {
+      //フォオローするユーザ
+      const user = await User.findById(req.params.id);
+      //自分自身
+      const currentUser = await User.findById(req.body.userId);
+      //フォロワーに存在したらフォローを外せる。
+      if (user.followers.includes(req.body.userId)) {
+        await user.updateOne({
+          //push追加。スキーマのfollowers配列に追加していく。
+          $pull: {
+            followers: req.body.userId,
+          },
+        });
+        await currentUser.updateOne({
+          $pull: {
+            //自分自身のフォローしている人の中に、フォローしたuserを追加。
+            followings: req.params.id,
+          },
+        });
+        return res.status(200).json("フォロー解除しました！");
+      } else {
+        return res.status(403).json("このユーザーはフォロー解除できません");
+      }
+    } catch (err) {
+      return res.status(500).json(err);
+    }
+  } else {
+    return res.status(500).json("自分自身をフォロー解除できません。");
+  }
+});
 
 // router.get("/", (req, res) => {
 //   res.send("user router");
