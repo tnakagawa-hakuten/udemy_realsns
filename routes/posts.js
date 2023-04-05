@@ -85,11 +85,25 @@ router.put("/:id/like", async (req, res) => {
   }
 });
 
-//タイムラインの投稿を取得
-router.get("/timeline/all", async (req, res) => {
+//プロフィール専用のタイムラインの取得
+router.get("/profile/:username", async (req, res) => {
   try {
     //どの人が投稿したのか判断
-    const currentUser = await User.findById(req.body.userId);
+    const user = await User.findOne({ username: req.params.username });
+    //投稿した人(currentUser._id)の投稿をすべて取得するために、postスキーマのuserIdにurrentUser._idを渡してる。
+    const posts = await Post.find({ userId: user._id });
+    //concat　組み合わせる。　スプレッド構文で配列をすべて表示。
+    return res.status(200).json(posts);
+  } catch (err) {
+    return res.status(500).json(err);
+  }
+});
+
+//タイムラインの投稿を取得
+router.get("/timeline/:userId", async (req, res) => {
+  try {
+    //どの人が投稿したのか判断
+    const currentUser = await User.findById(req.params.userId);
     //投稿した人(currentUser._id)の投稿をすべて取得するために、postスキーマのuserIdにurrentUser._idを渡してる。
     const userPosts = await Post.find({ userId: currentUser._id });
     //自分がフォローしている友達の投稿内容をすべて取得
